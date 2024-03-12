@@ -97,6 +97,8 @@ pub struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
 }
 
+unsafe impl Sync for HittableList {}
+
 impl Hittable for HittableList {
     fn hit(&self, ray: Ray3, t_range: Interval) -> Option<HitResult> {
         let mut current_hit = None;

@@ -2,6 +2,7 @@ use core::panic;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::time::Instant;
 
 use crate::interval::Interval;
 use crate::ray_tracer::Image;
@@ -140,17 +141,23 @@ fn main() {
 
     let ray_tracer = RayTracer::new(TracerParams {
         aspect_ratio: 16.0 / 9.0,
-        height: 720,
-        sampling_rate: 25,
-        max_depth: 10,
+        height: 1080,
+        sampling_rate: 100,
+        max_depth: 25,
         vfov: 20.0,
         defocus_angle: 0.6,
         focus_distance: 10.0,
         look_from: Vector::new([13.0, 2.0, 3.0]),
         look_at: Vector::new([0.0, 0.0, 0.0]),
     });
+
     let scene = create_scene();
-    let image = ray_tracer.render(&scene);
+
+    let now = Instant::now();
+    let image = ray_tracer.render_multi(&scene);
+    let duration = now.elapsed();
+
+    println!("Rendering took {:.2} seconds", duration.as_secs_f64());
 
     let path = Path::new(filename.as_str());
     generate_ppm_image(image, path)

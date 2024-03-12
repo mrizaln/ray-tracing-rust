@@ -1,5 +1,8 @@
+use std::num::NonZeroUsize;
+use std::thread::{self};
+
 use crate::color::{self, Color};
-use crate::hittable::{HitResult, Hittable, HittableList};
+use crate::hittable::{HitResult, Hittable};
 use crate::interval::Interval;
 use crate::material::ScatterResult;
 use crate::ray::Ray;
@@ -128,10 +131,6 @@ impl RayTracer {
             focus_distance: params.focus_distance,
         };
 
-        println!("{:#?}", dimension);
-        println!("{:#?}", viewport);
-        println!("{:#?}", camera);
-
         Self {
             dimension,
             viewport,
@@ -141,7 +140,7 @@ impl RayTracer {
         }
     }
 
-    pub fn render(&self, scene: &HittableList) -> Image {
+    pub fn render(&self, scene: &dyn Hittable) -> Image {
         let mut pixels = Vec::<Color>::with_capacity(
             self.dimension.width as usize * self.dimension.height as usize,
         );
@@ -151,6 +150,67 @@ impl RayTracer {
             for col in 0..self.dimension.width {
                 let color = self.sample_color_at(col, row, scene);
                 pixels.push(color::clamp(color, Interval::new(0.0, 1.0)));
+            }
+        }
+
+        Image {
+            pixels,
+            dimension: self.dimension.clone(),
+        }
+    }
+
+    pub fn render_multi(&self, scene: &(dyn Hittable + Sync)) -> Image {
+        let concurrency_level: usize = std::thread::available_parallelism()
+            .unwrap_or(unsafe { NonZeroUsize::new_unchecked(1) })
+            .into();
+        let chunk_size = self.dimension.height as usize / concurrency_level;
+
+        enum SampleResult {
+            Color(usize, Color),
+            None,
+        }
+
+        let (tx, rx) = std::sync::mpsc::channel::<SampleResult>();
+
+        // interleaved rendering
+        thread::scope(|s| {
+            for i in 0..concurrency_level.into() {
+                let num_steps =
+                    if chunk_size * concurrency_level + i < self.dimension.height as usize {
+                        chunk_size + 1
+                    } else {
+                        chunk_size
+                    };
+                let tx = tx.clone();
+
+                s.spawn(move || {
+                    for count in 0..num_steps {
+                        if i == 0 {
+                            // I assume each thread has equal/balanced workload (advantage of using
+                            // interleaved rendering), so i just print this in 1 thread
+                            println!("Progress: {:.2}%", count as f64 / num_steps as f64 * 100.0);
+                        }
+
+                        let row = (count as usize * concurrency_level + i) as u32;
+                        for col in 0..self.dimension.width {
+                            let color = self.sample_color_at(col, row, scene);
+                            let index = (row * self.dimension.width + col) as usize;
+                            tx.send(SampleResult::Color(index, color)).unwrap();
+                        }
+                    }
+                    tx.send(SampleResult::None).unwrap();
+                });
+            }
+        });
+
+        let pixel_num = self.dimension.width as usize * self.dimension.height as usize;
+        let mut pixels = vec![Color::new([0.0, 0.0, 0.0]); pixel_num];
+
+        let mut completed_threads = 0usize;
+        while completed_threads < concurrency_level {
+            match rx.recv().unwrap() {
+                SampleResult::Color(index, color) => pixels[index] = color,
+                SampleResult::None => completed_threads += 1,
             }
         }
 
