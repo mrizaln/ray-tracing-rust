@@ -130,4 +130,23 @@ mod tests {
         assert_eq!(color.s(), values[1]);
         assert_eq!(color.v(), values[2]);
     }
+
+    #[test]
+    fn test_operators() {
+        let a = Color::new([1.0, 2.0, 3.0]);
+        let b = Color::new([4.0, 5.0, 6.0]);
+
+        assert_eq!(a + b, Color::new([5.0, 7.0, 9.0]));
+        assert_eq!(a - b, Color::new([-3.0, -3.0, -3.0]));
+        assert_eq!(a * b, Color::new([4.0, 10.0, 18.0]));
+        assert_eq!(a / b, Color::new([1.0 / 4.0, 2.0 / 5.0, 3.0 / 6.0]));
+        assert_eq!((-a), Color::new([-1.0, -2.0, -3.0]));
+
+        let c = 5.33424;
+
+        assert_eq!(a + c, Color::new([1.0 + c, 2.0 + c, 3.0 + c]));
+        assert_eq!(a - c, Color::new([1.0 - c, 2.0 - c, 3.0 - c]));
+        assert_eq!(a * c, Color::new([1.0 * c, 2.0 * c, 3.0 * c]));
+        assert_eq!(a / c, Color::new([1.0 / c, 2.0 / c, 3.0 / c]));
+    }
 }

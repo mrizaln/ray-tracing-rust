@@ -150,6 +150,7 @@ where
     unit_vec - normal * unit_vec.dot(normal) * T::from(2.0)
 }
 
+// TODO: inspect this code for bugs
 pub fn refract<T, const N: usize>(
     unit_vec: Vector<T, N>,
     normal: Vector<T, N>,
@@ -158,16 +159,10 @@ pub fn refract<T, const N: usize>(
 where
     T: VecElement + From<f64> + Into<f64>,
 {
-    let mut cos_theta = (-unit_vec).dot(normal);
-    if cos_theta.into() < 1.0 {
-        cos_theta = T::from(1.0);
-    }
-
-    let r_out_perpendicular = (unit_vec + normal * cos_theta) * T::from(refraction_ratio);
-
-    let diff = 1.0 - r_out_perpendicular.length_squared().into();
-    let abs_diff = if diff < 0.0 { -diff } else { diff };
-    let r_out_parallel = -(normal * T::from(abs_diff.sqrt()));
+    let cos_theta = Into::<f64>::into((-unit_vec).dot(normal)).min(1.0);
+    let r_out_perpendicular = (unit_vec + normal * T::from(cos_theta)) * T::from(refraction_ratio);
+    let diff = Into::<f64>::into(1.0 - r_out_perpendicular.length_squared().into()).abs();
+    let r_out_parallel = -(normal * T::from(diff.sqrt()));
 
     r_out_perpendicular + r_out_parallel
 }
@@ -265,10 +260,20 @@ mod tests {
         assert_eq!(a / c, Vector::new([1.0 / c, 2.0 / c, 3.0 / c]));
     }
 
-    // #[test]
-    // fn test_free_functions() {
-    //     // reflect = v - 2 * dot(v, n) * n
-    //     let a = random_unit_vector();
-    //     let b = random_unit_vector();
-    // }
+    #[test]
+    fn test_free_functions() {
+        // reflect = v - 2 * dot(v, n) * n
+        let a = Vector::new([
+            -0.8471285155916642,
+            -0.27185175689173274,
+            -0.327858942211803,
+        ]);
+        let b = Vector::new([
+            -0.4306728257561193,
+            -0.2940344720125667,
+            -0.8532670428555941,
+        ]);
+
+        let reflected = reflect(a, b);
+    }
 }
