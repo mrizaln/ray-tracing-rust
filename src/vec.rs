@@ -3,6 +3,8 @@
 use num::traits::Num;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 
+use crate::util;
+
 macro_rules! impl_op {
     ($trait:ident, $method:ident, $op:tt) => {
         impl<T: VecElement, const N: usize> $trait for Vector<T, N> {
@@ -22,7 +24,22 @@ macro_rules! impl_op {
 
             fn $method(self, rhs: T) -> Self::Output {
                 let mut data = [T::default(); N];
-                data.iter_mut().for_each(|x| *x = *x $op rhs);
+                for i in 0..N {
+                    data[i] = self.data[i] $op rhs;
+                }
+                Self { data }
+            }
+        }
+    };
+    ($trait:ident) => {
+        impl<T: VecElement, const N: usize> $trait for Vector<T, N> {
+            type Output = Self;
+
+            fn neg(self) -> Self::Output {
+                let mut data = [T::default(); N];
+                for i in 0..N {
+                    data[i] = -self.data[i];
+                }
                 Self { data }
             }
         }
@@ -35,7 +52,7 @@ pub trait VecElement: Copy + Default + Num + Neg<Output = Self> {}
 impl<T> VecElement for T where T: Copy + Default + Num + Neg<Output = Self> {}
 
 /// Mathematical object vector struct
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Vector<T: VecElement, const N: usize> {
     pub data: [T; N],
 }
@@ -44,18 +61,7 @@ impl_op!(Add, add, +);
 impl_op!(Sub, sub, -);
 impl_op!(Mul, mul, *);
 impl_op!(Div, div, /);
-
-impl<T: VecElement, const N: usize> Neg for Vector<T, N> {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        let mut data = [T::default(); N];
-        for i in 0..N {
-            data[i] = -self.data[i];
-        }
-        Self { data }
-    }
-}
+impl_op!(Neg);
 
 impl<T: VecElement, const N: usize> Default for Vector<T, N> {
     fn default() -> Self {
@@ -70,12 +76,20 @@ impl<T: VecElement, const N: usize> Vector<T, N> {
         Self { data }
     }
 
-    pub fn dot(&self) -> T {
-        self.data.iter().fold(T::default(), |acc, x| acc + *x * *x)
+    pub fn new_one(value: T) -> Self {
+        let data = [value; N];
+        Self { data }
+    }
+
+    pub fn dot(&self, other: Self) -> T {
+        self.data
+            .iter()
+            .zip(other.data)
+            .fold(T::default(), |acc, (l, r)| acc + *l * r)
     }
 
     pub fn length_squared(&self) -> T {
-        self.dot()
+        self.dot(self.clone())
     }
 }
 
@@ -95,6 +109,13 @@ impl<T: VecElement + Into<f64> + From<f64>, const N: usize> Vector<T, N> {
             data[i] = T::from(new_data);
         }
         Vector::new(data)
+    }
+
+    pub fn near_zero(&self) -> bool {
+        let delta = 1e-8;
+        self.data
+            .iter()
+            .all(|x| (*x).into() < delta && (*x).into() > -delta)
     }
 }
 
@@ -122,22 +143,132 @@ impl<T: VecElement> Vector<T, 3> {
 //     }
 // }
 
+pub fn reflect<T, const N: usize>(unit_vec: Vector<T, N>, normal: Vector<T, N>) -> Vector<T, N>
+where
+    T: VecElement + From<f64>,
+{
+    unit_vec - normal * unit_vec.dot(normal) * T::from(2.0)
+}
+
+pub fn refract<T, const N: usize>(
+    unit_vec: Vector<T, N>,
+    normal: Vector<T, N>,
+    refraction_ratio: f64,
+) -> Vector<T, N>
+where
+    T: VecElement + From<f64> + Into<f64>,
+{
+    let mut cos_theta = (-unit_vec).dot(normal);
+    if cos_theta.into() < 1.0 {
+        cos_theta = T::from(1.0);
+    }
+
+    let r_out_perpendicular = (unit_vec + normal * cos_theta) * T::from(refraction_ratio);
+
+    let diff = 1.0 - r_out_perpendicular.length_squared().into();
+    let abs_diff = if diff < 0.0 { -diff } else { diff };
+    let r_out_parallel = -(normal * T::from(abs_diff.sqrt()));
+
+    r_out_perpendicular + r_out_parallel
+}
+
+pub fn random_vector<T, const N: usize>(from: T, to: T) -> Vector<T, N>
+where
+    T: VecElement + From<f64> + Into<f64>,
+{
+    let mut data = [T::default(); N];
+    data.iter_mut()
+        .for_each(|x| *x = util::get_random(from, to));
+    Vector { data }
+}
+
+pub fn random_in_unit_sphere<T, const N: usize>() -> Vector<T, N>
+where
+    T: VecElement + From<f64> + Into<f64>,
+{
+    loop {
+        let point = random_vector::<T, N>(T::from(-1.0), T::from(1.0));
+        if point.length_squared().into() < 1.0 {
+            break point;
+        }
+    }
+}
+
+pub fn random_unit_vector<T, const N: usize>() -> Vector<T, N>
+where
+    T: VecElement + From<f64> + Into<f64>,
+{
+    random_in_unit_sphere().unit_vector()
+}
+
+pub fn random_on_hemisphere<T, const N: usize>(normal: Vector<T, N>) -> Vector<T, N>
+where
+    T: VecElement + From<f64> + Into<f64>,
+{
+    let point = random_unit_vector::<T, N>();
+    if point.dot(normal).into() > 0.0 {
+        point
+    } else {
+        -point
+    }
+}
+
+pub fn random_in_unit_disk<T>() -> Vector<T, 2>
+where
+    T: VecElement + From<f64> + Into<f64> + std::cmp::PartialOrd,
+{
+    loop {
+        let point = random_vector::<T, 2>(T::from(-1.0), T::from(1.0));
+        if point.length_squared().into() < 1.0 {
+            break point;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_vec() {
+    fn test_functions() {
+        let a = Vector::new([1.0, 2.0, 3.0]);
+
+        assert_eq!(a.data, [1.0, 2.0, 3.0]);
+        assert_eq!(a.length_squared(), 14.0);
+        assert_eq!(a.length(), 14.0f64.sqrt());
+        assert_eq!(
+            a.unit_vector(),
+            Vector::new([
+                1.0 / 14.0f64.sqrt(),
+                2.0 / 14.0f64.sqrt(),
+                3.0 / 14.0f64.sqrt()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_operators() {
         let a = Vector::new([1.0, 2.0, 3.0]);
         let b = Vector::new([4.0, 5.0, 6.0]);
 
-        assert_eq!(a.clone() + b.clone(), Vector::new([5.0, 7.0, 9.0]));
-        assert_eq!(a.clone() - b.clone(), Vector::new([-3.0, -3.0, -3.0]));
-        assert_eq!(a.clone() * b.clone(), Vector::new([4.0, 10.0, 18.0]));
-        assert_eq!(
-            a.clone() / b.clone(),
-            Vector::new([1.0 / 4.0, 2.0 / 5.0, 3.0 / 6.0])
-        );
-        assert_eq!((-a).clone(), Vector::new([-1.0, -2.0, -3.0]));
+        assert_eq!(a + b, Vector::new([5.0, 7.0, 9.0]));
+        assert_eq!(a - b, Vector::new([-3.0, -3.0, -3.0]));
+        assert_eq!(a * b, Vector::new([4.0, 10.0, 18.0]));
+        assert_eq!(a / b, Vector::new([1.0 / 4.0, 2.0 / 5.0, 3.0 / 6.0]));
+        assert_eq!((-a), Vector::new([-1.0, -2.0, -3.0]));
+
+        let c = 5.33424;
+
+        assert_eq!(a + c, Vector::new([1.0 + c, 2.0 + c, 3.0 + c]));
+        assert_eq!(a - c, Vector::new([1.0 - c, 2.0 - c, 3.0 - c]));
+        assert_eq!(a * c, Vector::new([1.0 * c, 2.0 * c, 3.0 * c]));
+        assert_eq!(a / c, Vector::new([1.0 / c, 2.0 / c, 3.0 / c]));
     }
+
+    // #[test]
+    // fn test_free_functions() {
+    //     // reflect = v - 2 * dot(v, n) * n
+    //     let a = random_unit_vector();
+    //     let b = random_unit_vector();
+    // }
 }

@@ -1,19 +1,27 @@
-use crate::color::Color;
+use crate::color::{self, Color};
+use crate::hittable::{HitResult, Hittable, HittableList};
+use crate::interval::Interval;
+use crate::material::ScatterResult;
+use crate::ray::Ray;
 use crate::vec::Vector;
+use crate::{util, vec};
 
 type Vec3 = Vector<f64, 3>;
-type Color3 = Color<f64>;
+type Ray3 = Ray<f64, 3>;
 
+#[derive(Clone, Debug)]
 pub struct Dimension {
     pub width: u32,
     pub height: u32,
 }
 
+#[derive(Debug)]
 pub struct Image {
-    pub pixels: Vec<Color3>,
+    pub pixels: Vec<Color>,
     pub dimension: Dimension,
 }
 
+#[derive(Debug)]
 pub struct TracerParams {
     pub aspect_ratio: f64,
     pub height: u32,
@@ -26,8 +34,10 @@ pub struct TracerParams {
     pub look_at: Vec3,
 }
 
+#[derive(Debug)]
 struct Viewport {
-    pub dimension: Dimension,
+    pub width: f64,
+    pub height: f64,
     pub u_vector: Vec3,
     pub v_vector: Vec3,
     pub du_vector: Vec3,
@@ -36,6 +46,7 @@ struct Viewport {
     pub pixel_origin: Vec3,
 }
 
+#[derive(Debug)]
 struct Camera {
     pub position: Vec3,
     pub view_up: Vec3,
@@ -48,6 +59,7 @@ struct Camera {
     pub focus_distance: f64,
 }
 
+#[derive(Debug)]
 pub struct RayTracer {
     dimension: Dimension,
     viewport: Viewport,
@@ -62,47 +74,40 @@ impl RayTracer {
 
         let cam_center = params.look_from;
 
-        let view_dir = (cam_center.clone() - params.look_at).unit_vector();
-        let view_right = world_up.cross(view_dir.clone()).unit_vector();
-        let view_up = view_dir.cross(view_right.clone());
+        let view_dir = (cam_center - params.look_at).unit_vector();
+        let view_right = world_up.cross(view_dir).unit_vector();
+        let view_up = view_dir.cross(view_right);
 
         let theta = params.vfov.to_radians();
-        let h = theta / 2.0;
+        let h = (theta / 2.0).tan();
 
         let height = params.height;
         let width = (height as f64 * params.aspect_ratio) as u32;
 
         let actual_ratio = width as f64 / height as f64;
-        let view_height = (2.0 * h * params.focus_distance) as u32;
-        let view_width = (view_height as f64 * actual_ratio) as u32;
+        let view_height = 2.0 * h * params.focus_distance;
+        let view_width = view_height as f64 * actual_ratio;
 
-        let view_u_vec = view_right.clone() * view_width as f64;
-        let view_v_vec = -view_up.clone() * view_height as f64;
-        let view_du_vec = view_u_vec.clone() / width as f64;
-        let view_dv_vec = view_v_vec.clone() / height as f64;
+        let view_u_vec = view_right * view_width;
+        let view_v_vec = -view_up * view_height;
+        let view_du_vec = view_u_vec / width as f64;
+        let view_dv_vec = view_v_vec / height as f64;
 
-        let view_upper_left = cam_center.clone()
-            - (view_dir.clone() * params.focus_distance)
-            - view_u_vec.clone() / 2.0
-            - view_v_vec.clone() / 2.0;
-        let view_pixel_origin =
-            view_upper_left.clone() + (view_du_vec.clone() + view_dv_vec.clone()) * 0.5;
+        let view_upper_left =
+            cam_center - (view_dir * params.focus_distance) - view_u_vec / 2.0 - view_v_vec / 2.0;
+        let view_pixel_origin = view_upper_left + (view_du_vec + view_dv_vec) * 0.5;
 
         let defocus_radius =
             params.focus_distance * (params.defocus_angle / 2.0).to_radians().tan();
-        let defocus_disk_u_vec = view_right.clone() * defocus_radius;
-        let defocus_disk_v_vec = view_up.clone() * defocus_radius;
+        let defocus_disk_u_vec = view_right * defocus_radius;
+        let defocus_disk_v_vec = view_up * defocus_radius;
 
         // construct
         let dimension = Dimension { width, height };
 
-        let view_dimension = Dimension {
+        let viewport = Viewport {
             width: view_width,
             height: view_height,
-        };
-
-        let viewport = Viewport {
-            dimension: view_dimension,
             u_vector: view_u_vec,
             v_vector: view_v_vec,
             du_vector: view_du_vec,
@@ -123,6 +128,10 @@ impl RayTracer {
             focus_distance: params.focus_distance,
         };
 
+        println!("{:#?}", dimension);
+        println!("{:#?}", viewport);
+        println!("{:#?}", camera);
+
         Self {
             dimension,
             viewport,
@@ -130,5 +139,94 @@ impl RayTracer {
             sampling_rate: params.sampling_rate,
             max_depth: params.max_depth,
         }
+    }
+
+    pub fn render(&self, scene: &HittableList) -> Image {
+        let mut pixels = Vec::<Color>::with_capacity(
+            self.dimension.width as usize * self.dimension.height as usize,
+        );
+
+        for row in 0..self.dimension.height {
+            println!("Scanlines remaining: {}", self.dimension.height - row);
+            for col in 0..self.dimension.width {
+                let color = self.sample_color_at(col, row, scene);
+                pixels.push(color::clamp(color, Interval::new(0.0, 1.0)));
+            }
+        }
+
+        Image {
+            pixels,
+            dimension: self.dimension.clone(),
+        }
+    }
+
+    fn sample_color_at(&self, col: u32, row: u32, hittable: &dyn Hittable) -> Color {
+        let mut accumulated_color = Color::new_one(0.0);
+
+        let pixel_center = self.viewport.pixel_origin
+            + (self.viewport.du_vector * col as f64)
+            + (self.viewport.dv_vector * row as f64);
+
+        for _ in 0..self.sampling_rate {
+            let pixel_sample = pixel_center + self.sample_unit_square();
+            let ray_origin = if self.camera.defocus_angle <= 0.0 {
+                self.camera.position
+            } else {
+                self.defocus_disk_sample()
+            };
+            let ray_direction = pixel_sample - ray_origin;
+
+            let ray = Ray3 {
+                origin: ray_origin,
+                direction: ray_direction.unit_vector(),
+            };
+
+            accumulated_color = accumulated_color + self.ray_color(ray, self.max_depth, hittable);
+        }
+
+        accumulated_color / self.sampling_rate as f64
+    }
+
+    fn ray_color(&self, ray: Ray3, depth: u32, hittable: &dyn Hittable) -> Color {
+        if depth <= 0 {
+            return Color::new_one(0.0);
+        }
+
+        match hittable.hit(ray.clone(), Interval::new(0.001, f64::INFINITY)) {
+            Some(HitResult { record, material }) => {
+                let normal = record.normal.clone();
+                match material.and_then(|v| v.scatter(ray, record)) {
+                    Some(ScatterResult {
+                        ray: new_ray,
+                        attenuation,
+                    }) => attenuation * self.ray_color(new_ray, depth - 1, hittable),
+                    None => Color::from(normal * 0.5 + 0.5),
+                }
+            }
+            None => {
+                // missed, use background color instead
+                let direction = ray.direction.unit_vector();
+
+                // lerp
+                let a = 0.5 * (direction.data[1] + 1.0);
+                let white = Color::new_one(1.0);
+                let blue = Color::new([0.5, 0.7, 1.0]);
+
+                white * (1.0 - a) + blue * a
+            }
+        }
+    }
+
+    fn sample_unit_square(&self) -> Vec3 {
+        let px = util::get_random(0.0, 1.0) - 0.5;
+        let py = util::get_random(0.0, 1.0) - 0.5;
+        self.viewport.du_vector * px + self.viewport.dv_vector * py
+    }
+
+    fn defocus_disk_sample(&self) -> Vec3 {
+        let [x, y] = vec::random_in_unit_disk::<f64>().data;
+        self.camera.position
+            + self.camera.defocus_disk_u_vec * x
+            + self.camera.defocus_disk_v_vec * y
     }
 }
