@@ -4,12 +4,10 @@ use std::io::Write;
 use std::path::Path;
 use std::time::Instant;
 
-use crate::interval::Interval;
-use crate::ray_tracer::Image;
-
 use self::color::Color;
 use self::hittable::{HittableList, Sphere};
 use self::material::{Dielectric, Lambertian, Material, Metal};
+use self::ray_tracer::Image;
 use self::ray_tracer::{RayTracer, TracerParams};
 use self::vec::Vector;
 
@@ -50,10 +48,10 @@ fn generate_ppm_image(image: Image, path: &Path) {
     );
 
     for (i, pixel) in pixels.iter().enumerate() {
-        let corrected = color::correct_gamma(*pixel);
-        let clamped = color::clamp(corrected, Interval::new(0.0, 0.999));
-        let color = color::transform(clamped, |v| (MAX_COLOR as f64 * v) as i32);
-        // let color = color::transform(*pixel, |v| (MAX_COLOR as f64 * v) as i32);
+        let color: Color<i32> = pixel
+            .correct_gamma()
+            .clamp((0.0, 0.999).into())
+            .transform(|v| (v * MAX_COLOR as f64) as i32);
 
         let line = format!("{} {} {}\n", color.r(), color.g(), color.b());
         temp += &line;
@@ -141,9 +139,9 @@ fn main() {
 
     let ray_tracer = RayTracer::new(TracerParams {
         aspect_ratio: 16.0 / 9.0,
-        height: 1080,
-        sampling_rate: 100,
-        max_depth: 25,
+        height: 360,
+        sampling_rate: 50,
+        max_depth: 10,
         vfov: 20.0,
         defocus_angle: 0.6,
         focus_distance: 10.0,

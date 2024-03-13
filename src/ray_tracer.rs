@@ -1,7 +1,7 @@
 use std::num::NonZeroUsize;
-use std::thread::{self};
+use std::thread;
 
-use crate::color::{self, Color};
+use crate::color::Color;
 use crate::hittable::{HitResult, Hittable};
 use crate::interval::Interval;
 use crate::material::ScatterResult;
@@ -148,8 +148,10 @@ impl RayTracer {
         for row in 0..self.dimension.height {
             println!("Scanlines remaining: {}", self.dimension.height - row);
             for col in 0..self.dimension.width {
-                let color = self.sample_color_at(col, row, scene);
-                pixels.push(color::clamp(color, Interval::new(0.0, 1.0)));
+                let color = self
+                    .sample_color_at(col, row, scene)
+                    .clamp((0.0, 1.0).into());
+                pixels.push(color);
             }
         }
 
@@ -160,9 +162,9 @@ impl RayTracer {
     }
 
     pub fn render_multi(&self, scene: &(dyn Hittable + Sync)) -> Image {
-        let concurrency_level: usize = std::thread::available_parallelism()
-            .unwrap_or(unsafe { NonZeroUsize::new_unchecked(1) })
-            .into();
+        let concurrency_level: usize = thread::available_parallelism()
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
+            .get();
         let chunk_size = self.dimension.height as usize / concurrency_level;
 
         enum SampleResult {
@@ -175,12 +177,10 @@ impl RayTracer {
         // interleaved rendering
         thread::scope(|s| {
             for i in 0..concurrency_level.into() {
-                let num_steps =
-                    if chunk_size * concurrency_level + i < self.dimension.height as usize {
-                        chunk_size + 1
-                    } else {
-                        chunk_size
-                    };
+                let num_steps = match chunk_size * concurrency_level + i {
+                    x if x < self.dimension.height as usize => chunk_size + 1,
+                    _ => chunk_size,
+                };
                 let tx = tx.clone();
 
                 s.spawn(move || {
@@ -193,8 +193,10 @@ impl RayTracer {
 
                         let row = (count as usize * concurrency_level + i) as u32;
                         for col in 0..self.dimension.width {
-                            let color = self.sample_color_at(col, row, scene);
                             let index = (row * self.dimension.width + col) as usize;
+                            let color = self
+                                .sample_color_at(col, row, scene)
+                                .clamp(Interval::new(0.0, 1.0));
                             tx.send(SampleResult::Color(index, color)).unwrap();
                         }
                     }
@@ -229,10 +231,9 @@ impl RayTracer {
 
         for _ in 0..self.sampling_rate {
             let pixel_sample = pixel_center + self.sample_unit_square();
-            let ray_origin = if self.camera.defocus_angle <= 0.0 {
-                self.camera.position
-            } else {
-                self.defocus_disk_sample()
+            let ray_origin = match self.camera.defocus_angle {
+                x if x <= 0.0 => self.camera.position,
+                _ => self.defocus_disk_sample(),
             };
             let ray_direction = pixel_sample - ray_origin;
 

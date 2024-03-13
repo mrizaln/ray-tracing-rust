@@ -64,14 +64,13 @@ impl Hittable for Sphere {
         }
 
         let d_sqrt = d.sqrt();
-
-        let mut root = (-b_half - d_sqrt) / a;
-        if !t_range.surrounds(root) {
-            root = (-b_half + d_sqrt) / a;
-            if !t_range.surrounds(root) {
-                return None;
-            }
-        }
+        let root1 = (-b_half - d_sqrt) / a;
+        let root2 = (-b_half + d_sqrt) / a;
+        let root = match (t_range.surrounds(root1), t_range.surrounds(root2)) {
+            (false, false) => return None,
+            (false, true) => root2,
+            (true, _) => root1,
+        };
 
         let point = ray.at(root);
         let out_normal = (point - self.center) / self.radius;
@@ -105,7 +104,7 @@ impl Hittable for HittableList {
         let mut t_closest = t_range.max;
 
         for object in self.objects.iter() {
-            if let Some(hit) = object.hit(ray.clone(), Interval::new(t_range.min, t_closest)) {
+            if let Some(hit) = object.hit(ray.clone(), (t_range.min, t_closest).into()) {
                 t_closest = hit.record.t_value;
                 current_hit = Some(hit);
             }

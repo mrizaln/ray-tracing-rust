@@ -30,12 +30,16 @@ impl<T: Num + PartialOrd + Clone> Interval<T> {
     }
 
     pub fn clamp(&self, value: T) -> T {
-        if value < self.min {
-            self.min.clone()
-        } else if value > self.max {
-            self.max.clone()
-        } else {
-            value
+        match value {
+            v if v < self.min => self.min.clone(),
+            v if v > self.max => self.max.clone(),
+            _ => value,
         }
+    }
+}
+
+impl<T: Num + PartialOrd + Clone> From<(T, T)> for Interval<T> {
+    fn from(value: (T, T)) -> Self {
+        Interval::new(value.0, value.1)
     }
 }

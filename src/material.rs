@@ -52,19 +52,18 @@ pub struct Metal {
 
 impl Material for Metal {
     fn scatter(&self, ray: Ray3, hit_record: HitRecord) -> Option<ScatterResult> {
-        let reflected = vec::reflect(ray.direction.unit_vector(), hit_record.normal)
+        let reflected = ray.direction.unit_vector().reflect(hit_record.normal)
             + vec::random_in_unit_sphere() * self.fuzz;
 
-        if reflected.dot(hit_record.normal) <= 0.0 {
-            None
-        } else {
-            Some(ScatterResult {
+        match reflected.dot(hit_record.normal) {
+            x if x > 0.0 => Some(ScatterResult {
                 ray: Ray {
                     origin: hit_record.point,
                     direction: reflected,
                 },
                 attenuation: self.albedo.clone(),
-            })
+            }),
+            _ => None,
         }
     }
 }
@@ -95,10 +94,9 @@ impl Dielectric {
 
 impl Material for Dielectric {
     fn scatter(&self, ray: Ray3, hit_record: HitRecord) -> Option<ScatterResult> {
-        let refraction_ratio = if hit_record.front_face {
-            1.0 / self.refractive_index
-        } else {
-            self.refractive_index
+        let refraction_ratio = match hit_record.front_face {
+            true => 1.0 / self.refractive_index,
+            false => self.refractive_index,
         };
         let unit_direction = ray.direction.unit_vector();
 
@@ -109,10 +107,9 @@ impl Material for Dielectric {
         let cannot_refract = refraction_ratio * sin_theta > 1.0
             || Self::reflectance(cos_theta, refraction_ratio) > util::get_random_canonical();
 
-        let scatter = if cannot_refract {
-            vec::reflect(unit_direction, hit_record.normal)
-        } else {
-            vec::refract(unit_direction, hit_record.normal, refraction_ratio)
+        let scatter = match cannot_refract {
+            true => unit_direction.reflect(hit_record.normal),
+            false => unit_direction.refract(hit_record.normal, refraction_ratio),
         };
 
         Some(ScatterResult {
