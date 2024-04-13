@@ -259,7 +259,7 @@ impl<T: VecElement> Vector<T, 4> {
 
 // // Rust can't do this, because of the orphan rule:
 // //       read: https://users.rust-lang.org/t/operator-overloading-and-generics/77485/6
-// // What a shame, no symmetric operator for Vector sadly
+// // What a shame, no symmetric operator for Vector with scalar sadly
 // impl<T: VecElement, const N: usize> Add<Vector<T, N>> for T {
 //     type Output = Vector<T, N>;
 

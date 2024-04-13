@@ -186,8 +186,6 @@ impl RayTracer {
                 s.spawn(move || {
                     for count in 0..num_steps {
                         if i == 0 {
-                            // I assume each thread has equal/balanced workload (advantage of using
-                            // interleaved rendering), so i just print this in 1 thread
                             println!("Progress: {:.2}%", count as f64 / num_steps as f64 * 100.0);
                         }
 

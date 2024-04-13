@@ -140,8 +140,8 @@ fn main() {
     let ray_tracer = RayTracer::new(TracerParams {
         aspect_ratio: 16.0 / 9.0,
         height: 360,
-        sampling_rate: 50,
-        max_depth: 10,
+        sampling_rate: 10,
+        max_depth: 5,
         vfov: 20.0,
         defocus_angle: 0.6,
         focus_distance: 10.0,
