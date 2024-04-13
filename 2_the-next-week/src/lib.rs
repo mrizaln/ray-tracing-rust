@@ -13,6 +13,7 @@ pub mod ray;
 pub mod ray_tracer;
 pub mod util;
 pub mod vec;
+pub mod progress_tracker;
 
 use clap::{arg, value_parser, Command};
 use color::Color;
@@ -59,11 +60,11 @@ pub fn parse_args() -> (TracerParams, PathBuf) {
         .arg(arg!(-t --height <height> "Height").value_parser(value_parser!(u32)))
         .arg(arg!(-s --sampling <sampling> "Sampling rate").value_parser(value_parser!(u32)))
         .arg(arg!(-d --depth <depth> "Max depth").value_parser(value_parser!(u32)))
-        .arg(arg!(-v --vfov <vfov> "VFOV").value_parser(value_parser!(f64)))
+        .arg(arg!(-v --vfov <vfov> "Vertical FOV").value_parser(value_parser!(f64)))
         .arg(arg!(-a --angle <angle> "Defocus angle").value_parser(value_parser!(f64)))
         .arg(arg!(-c --focus <focus> "Focus distance").value_parser(value_parser!(f64)))
-        .arg(arg!(-f --look_from <look_from> "Look from")) // custom
-        .arg(arg!(-l --look_at <look_at> "Look at")) // custom
+        .arg(arg!(-f --look_from <look_from> "Look from vector (FMT: \"f64/f64/f64\")")) // custom
+        .arg(arg!(-l --look_at <look_at> "Look at vector (FMT: \"f64/f64/f64\")")) // custom
         .get_matches();
 
     let config_file = if let Some(config) = matches.get_one::<String>("config") {

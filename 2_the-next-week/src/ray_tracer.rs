@@ -5,6 +5,7 @@ use crate::color::Color;
 use crate::hittable::{HitResult, Hittable};
 use crate::interval::Interval;
 use crate::material::ScatterResult;
+use crate::progress_tracker::ProgressTracker;
 use crate::ray::Ray;
 use crate::vec::Vector;
 use crate::{util, vec};
@@ -184,18 +185,24 @@ impl RayTracer {
                 let tx = tx.clone();
 
                 s.spawn(move || {
-                    for count in 0..num_steps {
-                        if i == 0 {
-                            eprintln!("Progress: {:.2}%", count as f64 / num_steps as f64 * 100.0);
-                        }
+                    let mut tracker = match i {
+                        0 => Some(ProgressTrackerWrapper::new(self.dimension.width, num_steps)),
+                        _ => None,
+                    };
 
+                    for count in 0..num_steps {
                         let row = (count as usize * concurrency_level + i) as u32;
                         for col in 0..self.dimension.width {
                             let index = (row * self.dimension.width + col) as usize;
                             let color = self
                                 .sample_color_at(col, row, scene)
                                 .clamp(Interval::new(0.0, 1.0));
+
                             tx.send(SampleResult::Color(index, color)).unwrap();
+
+                            tracker
+                                .as_mut()
+                                .map(|v| v.update(count, (col + 1) as usize));
                         }
                     }
                     tx.send(SampleResult::None).unwrap();
@@ -304,6 +311,42 @@ impl Default for TracerParams {
             focus_distance: 10.0,
             look_from: Vector::new([13.0, 2.0, 3.0]),
             look_at: Vector::new([0.0, 0.0, 0.0]),
+        }
+    }
+}
+
+struct ProgressTrackerWrapper {
+    tracker: ProgressTracker,
+    min_update_interval: usize,
+    width: usize,
+}
+
+impl ProgressTrackerWrapper {
+    pub fn new(width: u32, steps: usize) -> Self {
+        const MINIMUM_UPDATE_INTERVAL: usize = 512;
+        let max_count = steps * width as usize;
+        Self {
+            tracker: ProgressTracker::new(0, max_count as isize),
+            min_update_interval: MINIMUM_UPDATE_INTERVAL.min(width as usize),
+            width: width as usize,
+        }
+    }
+
+    pub fn update(&mut self, count: usize, width_step: usize) {
+        let new_count = count * self.width + width_step;
+        let should_update = new_count % self.min_update_interval == 0;
+        let reached_max = new_count == self.tracker.max() as usize;
+        if should_update || reached_max {
+            self.tracker.update(new_count as isize);
+            eprint!(
+                "\rProgress: {:>6.2}% | Elapsed: {:>6.2}s | ETA: {:>6.2}s",
+                self.tracker.progress(),
+                self.tracker.get_elapsed().as_secs_f64(),
+                self.tracker.get_eta().as_secs_f64()
+            );
+            if reached_max {
+                eprintln!();
+            }
         }
     }
 }
