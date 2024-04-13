@@ -153,6 +153,10 @@ dependencies = [
 [[package]]
 name = "ray-tracing-the-next-week"
 version = "0.1.0"
+dependencies = [
+ "num",
+ "rand",
+]
 
 [[package]]
 name = "ray-tracing-the-rest-of-your-life"
