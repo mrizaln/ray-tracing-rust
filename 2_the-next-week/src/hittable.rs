@@ -44,6 +44,39 @@ pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
     pub material: Option<Box<dyn Material>>,
+    is_moving: bool,
+    center_vec: Vec3,
+}
+
+impl Sphere {
+    pub fn new(center: Vec3, radius: f64, material: Option<Box<dyn Material>>) -> Self {
+        Self {
+            center,
+            radius,
+            material,
+            ..Self::default()
+        }
+    }
+
+    pub fn new_moving(
+        center1: Vec3,
+        center2: Vec3,
+        radius: f64,
+        material: Option<Box<dyn Material>>,
+    ) -> Self {
+        Self {
+            center: center1,
+            radius,
+            material,
+            is_moving: true,
+            center_vec: center2 - center1,
+        }
+    }
+
+    // use this function to get the true sphere center if it's moving
+    fn sphere_center(&self, time: f64) -> Vec3 {
+        self.center + self.center_vec * time
+    }
 }
 
 impl Hittable for Sphere {
@@ -53,7 +86,13 @@ impl Hittable for Sphere {
 
     fn hit(&self, ray: Ray3, t_range: Interval) -> Option<HitResult> {
         // basically quadratic formula
-        let oc = ray.origin - self.center;
+        let center = if self.is_moving {
+            self.sphere_center(ray.time)
+        } else {
+            self.center
+        };
+
+        let oc = ray.origin - center;
         let a = ray.direction.length_squared();
         let b_half = oc.dot(ray.direction);
         let c = oc.length_squared() - self.radius * self.radius;
@@ -82,12 +121,14 @@ impl Hittable for Sphere {
     }
 }
 
-impl Sphere {
-    pub fn new(center: Vec3, radius: f64, material: Option<Box<dyn Material>>) -> Self {
+impl Default for Sphere {
+    fn default() -> Self {
         Self {
-            center,
-            radius,
-            material,
+            center: Vec3::default(),
+            radius: 1.0,
+            material: None,
+            is_moving: false,
+            center_vec: [0.0, 0.0, 0.0].into(),
         }
     }
 }

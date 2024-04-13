@@ -30,7 +30,7 @@ fn main() {
         aspect_ratio: 16.0 / 9.0,
         height: 720,
         sampling_rate: 50,
-        max_depth: 5,
+        max_depth: 10,
         vfov: 20.0,
         defocus_angle: 0.6,
         focus_distance: 10.0,
@@ -38,7 +38,8 @@ fn main() {
         look_at: Vector::new([0.0, 0.0, 0.0]),
     });
 
-    let scene = rtr::ray_tracing_in_one_week_book_scene();
+    // let scene = rtr::ray_tracing_in_one_week_book_scene();
+    let scene = rtr::ray_tracing_in_one_week_book_scene_but_moving();
 
     let now = Instant::now();
     let image = ray_tracer.render_multi(&scene);

@@ -123,3 +123,73 @@ pub fn ray_tracing_in_one_week_book_scene() -> HittableList {
 
     scene
 }
+
+pub fn ray_tracing_in_one_week_book_scene_but_moving() -> HittableList {
+    let mut scene = HittableList::new();
+
+    // ground (static)
+    scene.add(Box::new(Sphere::new(
+        Vector::new([0.0, -1000.0, 0.0]),
+        1000.0,
+        Some(Box::new(Lambertian::new(Color::new([0.5, 0.5, 0.5])))), // diffuse
+    )));
+
+    // small spheres (moving)
+    for a in -11..11 {
+        for b in -11..11 {
+            let center = Vector::new([
+                a as f64 + 0.9 * util::get_random_canonical(),
+                0.2,
+                b as f64 + 0.9 * util::get_random_canonical(),
+            ]);
+            let offset = Vector::new([4.0, 0.2, 0.0]);
+
+            if (center - offset).length() <= 0.9 {
+                break;
+            }
+
+            let choose_material = util::get_random_canonical();
+
+            type M = Box<dyn Material>;
+            let (material, is_moving) = if choose_material < 0.8 {
+                let albedo = vec::random_vector(0.0, 1.0) * vec::random_vector(0.0, 1.0);
+                (Box::new(Lambertian::new(Color::from(albedo))) as M, true)
+            } else if choose_material < 0.95 {
+                let albedo = vec::random_vector(0.5, 1.0);
+                let fuzz = util::get_random(0.0, 0.5);
+                (Box::new(Metal::new(Color::from(albedo), fuzz)) as M, false)
+            } else {
+                (Box::new(Dielectric::new(1.5)) as M, false)
+            };
+
+            let sphere = if is_moving {
+                let center2 = center + Vector::new([0.0, util::get_random(0.0, 0.5), 0.0]);
+                Box::new(Sphere::new_moving(center, center2, 0.2, Some(material)))
+            } else {
+                Box::new(Sphere::new(center, 0.2, Some(material)))
+            };
+            scene.add(sphere);
+        }
+    }
+
+    // large spheres (static)
+    scene.add(Box::new(Sphere::new(
+        Vector::new([0.0, 1.0, 0.0]),
+        1.0,
+        Some(Box::new(Dielectric::new(1.5))), // glassy
+    )));
+
+    scene.add(Box::new(Sphere::new(
+        Vector::new([-4.0, 1.0, 0.0]),
+        1.0,
+        Some(Box::new(Lambertian::new(Color::new([0.4, 0.2, 0.1])))), // diffuse
+    )));
+
+    scene.add(Box::new(Sphere::new(
+        Vector::new([4.0, 1.0, 0.0]),
+        1.0,
+        Some(Box::new(Metal::new(Color::new([0.7, 0.6, 0.5]), 0.0))), // shiny
+    )));
+
+    scene
+}
