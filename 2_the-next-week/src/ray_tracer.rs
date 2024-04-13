@@ -146,7 +146,7 @@ impl RayTracer {
         );
 
         for row in 0..self.dimension.height {
-            println!("Scanlines remaining: {}", self.dimension.height - row);
+            eprintln!("Scanlines remaining: {}", self.dimension.height - row);
             for col in 0..self.dimension.width {
                 let color = self
                     .sample_color_at(col, row, scene)
@@ -186,7 +186,7 @@ impl RayTracer {
                 s.spawn(move || {
                     for count in 0..num_steps {
                         if i == 0 {
-                            println!("Progress: {:.2}%", count as f64 / num_steps as f64 * 100.0);
+                            eprintln!("Progress: {:.2}%", count as f64 / num_steps as f64 * 100.0);
                         }
 
                         let row = (count as usize * concurrency_level + i) as u32;
@@ -289,5 +289,21 @@ impl RayTracer {
         self.camera.position
             + self.camera.defocus_disk_u_vec * x
             + self.camera.defocus_disk_v_vec * y
+    }
+}
+
+impl Default for TracerParams {
+    fn default() -> Self {
+        Self {
+            aspect_ratio: 16.0 / 9.0,
+            height: 480,
+            sampling_rate: 20,
+            max_depth: 10,
+            vfov: 20.0,
+            defocus_angle: 0.6,
+            focus_distance: 10.0,
+            look_from: Vector::new([13.0, 2.0, 3.0]),
+            look_at: Vector::new([0.0, 0.0, 0.0]),
+        }
     }
 }

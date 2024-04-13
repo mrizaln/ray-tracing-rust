@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::usize;
 
 pub mod color;
 pub mod hittable;
@@ -11,11 +14,89 @@ pub mod ray_tracer;
 pub mod util;
 pub mod vec;
 
+use clap::{arg, value_parser, Command};
 use color::Color;
+use config::Config;
 use hittable::{HittableList, Sphere};
 use material::*;
 use ray_tracer::Image;
 use vec::Vector;
+
+use self::ray_tracer::TracerParams;
+use self::vec::VecElement;
+
+macro_rules! parse_config {
+    ($config:expr, $matches:expr, $name:literal, $type:ty, $dest:expr) => {
+        $config
+            .get($name)
+            .and_then(|v| v.parse::<$type>().ok())
+            .map(|v| $dest = v);
+        $matches.get_one::<$type>($name).map(|v| $dest = *v);
+    };
+}
+
+macro_rules! parse_config_fn {
+    ($config:expr, $matches:expr, $name:literal, $parsefn:expr, $dest:expr) => {
+        $config
+            .get($name)
+            .and_then(|v| $parsefn(v))
+            .map(|v| $dest = v);
+        $matches
+            .get_one::<String>($name)
+            .and_then(|v| $parsefn(v.as_str()))
+            .map(|v| $dest = v);
+    };
+}
+
+pub fn parse_args() -> (TracerParams, PathBuf) {
+    let mut param = TracerParams::default();
+
+    let matches = Command::new("RayTracer")
+        .version("2.0")
+        .about("A ray tracer")
+        .arg(arg!([output] "Optional output file"))
+        .arg(arg!(-g --config <config> "Config file"))
+        .arg(arg!(-t --height <height> "Height").value_parser(value_parser!(u32)))
+        .arg(arg!(-s --sampling <sampling> "Sampling rate").value_parser(value_parser!(u32)))
+        .arg(arg!(-d --depth <depth> "Max depth").value_parser(value_parser!(u32)))
+        .arg(arg!(-v --vfov <vfov> "VFOV").value_parser(value_parser!(f64)))
+        .arg(arg!(-a --angle <angle> "Defocus angle").value_parser(value_parser!(f64)))
+        .arg(arg!(-c --focus <focus> "Focus distance").value_parser(value_parser!(f64)))
+        .arg(arg!(-f --look_from <look_from> "Look from")) // custom
+        .arg(arg!(-l --look_at <look_at> "Look at")) // custom
+        .get_matches();
+
+    let config_file = if let Some(config) = matches.get_one::<String>("config") {
+        config.as_str()
+    } else {
+        "renderconfig.toml"
+    };
+
+    let config = Config::builder()
+        .add_source(config::File::with_name(config_file))
+        .build()
+        .and_then(|c| c.try_deserialize::<HashMap<String, String>>())
+        .unwrap_or_else(|e| {
+            eprintln!("Failed to read config file: {}", e);
+            HashMap::new()
+        });
+
+    parse_config!(config, matches, "height", u32, param.height);
+    parse_config!(config, matches, "sampling", u32, param.sampling_rate);
+    parse_config!(config, matches, "depth", u32, param.max_depth);
+    parse_config!(config, matches, "vfov", f64, param.vfov);
+    parse_config!(config, matches, "angle", f64, param.defocus_angle);
+    parse_config!(config, matches, "focus", f64, param.focus_distance);
+    parse_config_fn!(config, matches, "look_from", parse_vector, param.look_from);
+    parse_config_fn!(config, matches, "look_at", parse_vector, param.look_at);
+
+    let output = matches
+        .get_one::<String>("output")
+        .map(|s| s.as_str())
+        .unwrap_or("image.ppm");
+
+    (param, output.into())
+}
 
 pub fn generate_ppm_image(image: Image, path: &Path) {
     if path.exists() && path.is_dir() {
@@ -23,7 +104,7 @@ pub fn generate_ppm_image(image: Image, path: &Path) {
     }
 
     if path.exists() {
-        println!(
+        eprintln!(
             "File {} exists. Will overwrite.",
             path.to_str().unwrap_or("{unknown}")
         );
@@ -192,4 +273,22 @@ pub fn ray_tracing_in_one_week_book_scene_but_moving() -> HittableList {
     )));
 
     scene
+}
+
+fn parse_vector<T, const N: usize>(string: &str) -> Option<Vector<T, N>>
+where
+    T: VecElement + std::str::FromStr + Debug,
+{
+    let result = string
+        .split('/')
+        .map(|e| e.parse::<T>().ok())
+        .collect::<Option<Vec<T>>>()
+        .and_then(|v| {
+            let boxed_slice = v.into_boxed_slice();
+            match TryInto::<Box<[T; N]>>::try_into(boxed_slice) {
+                Ok(array) => Some(Vector::new(*array)),
+                Err(_) => None,
+            }
+        });
+    result
 }
