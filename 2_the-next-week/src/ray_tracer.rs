@@ -146,13 +146,17 @@ impl RayTracer {
             self.dimension.width as usize * self.dimension.height as usize,
         );
 
-        for row in 0..self.dimension.height {
-            eprintln!("Scanlines remaining: {}", self.dimension.height - row);
-            for col in 0..self.dimension.width {
+        let Dimension { width, height } = self.dimension;
+        let mut tracker = ProgressTrackerWrapper::new(width, height as usize);
+
+        for row in 0..height {
+            for col in 0..width {
                 let color = self
                     .sample_color_at(col, row, scene)
                     .clamp((0.0, 1.0).into());
                 pixels.push(color);
+
+                tracker.update(row as usize, (col + 1) as usize);
             }
         }
 

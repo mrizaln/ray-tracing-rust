@@ -9,13 +9,13 @@ pub mod color;
 pub mod hittable;
 pub mod interval;
 pub mod material;
+pub mod progress_tracker;
 pub mod ray;
 pub mod ray_tracer;
 pub mod util;
 pub mod vec;
-pub mod progress_tracker;
 
-use clap::{arg, value_parser, Command};
+use clap::{arg, value_parser, Arg, ArgAction, Command};
 use color::Color;
 use config::Config;
 use hittable::{HittableList, Sphere};
@@ -49,7 +49,13 @@ macro_rules! parse_config_fn {
     };
 }
 
-pub fn parse_args() -> (TracerParams, PathBuf) {
+pub struct ParsedArgs {
+    pub tracer_params: TracerParams,
+    pub output: PathBuf,
+    pub use_single_thread: bool,
+}
+
+pub fn parse_args() -> ParsedArgs {
     let mut param = TracerParams::default();
 
     let matches = Command::new("RayTracer")
@@ -65,6 +71,13 @@ pub fn parse_args() -> (TracerParams, PathBuf) {
         .arg(arg!(-c --focus <focus> "Focus distance").value_parser(value_parser!(f64)))
         .arg(arg!(-f --look_from <look_from> "Look from vector (FMT: \"f64/f64/f64\")")) // custom
         .arg(arg!(-l --look_at <look_at> "Look at vector (FMT: \"f64/f64/f64\")")) // custom
+        .arg(
+            Arg::new("single-thread")
+                .short('1')
+                .long("single-thread")
+                .help("Use single thread for rendering instead of multi-thread")
+                .action(ArgAction::SetTrue),
+        )
         .get_matches();
 
     let config_file = if let Some(config) = matches.get_one::<String>("config") {
@@ -96,7 +109,13 @@ pub fn parse_args() -> (TracerParams, PathBuf) {
         .map(|s| s.as_str())
         .unwrap_or("image.ppm");
 
-    (param, output.into())
+    let use_single_thread = matches.get_flag("single-thread");
+
+    ParsedArgs {
+        tracer_params: param,
+        output: output.into(),
+        use_single_thread,
+    }
 }
 
 pub fn generate_ppm_image(image: Image, path: &Path) {

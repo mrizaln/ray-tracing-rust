@@ -3,6 +3,7 @@ use std::time::Instant;
 
 use ray_tracing_the_next_week as rtr;
 use rtr::ray_tracer::RayTracer;
+use rtr::ParsedArgs;
 
 macro_rules! timeit {
     ($e:expr) => {{
@@ -14,11 +15,15 @@ macro_rules! timeit {
 }
 
 fn main() {
-    let (tracer_params, filepath) = rtr::parse_args();
+    let ParsedArgs {
+        tracer_params,
+        output,
+        use_single_thread,
+    } = rtr::parse_args();
     eprintln!("Parameters: {:#?}", tracer_params);
 
-    if filepath.exists() {
-        eprintln!("File already exist! ({})", filepath.display());
+    if output.exists() {
+        eprintln!("File already exist! ({})", output.display());
         eprint!("Proceed anyway [y/N]? ");
 
         let mut c = [b'\0'; 1];
@@ -34,8 +39,11 @@ fn main() {
     // let scene = rtr::ray_tracing_in_one_week_book_scene();
     let scene = rtr::ray_tracing_in_one_week_book_scene_but_moving();
 
-    let (image, duration) = timeit! { ray_tracer.render_multi(&scene) };
+    let (image, duration) = timeit!(match use_single_thread {
+        true => ray_tracer.render(&scene),
+        false => ray_tracer.render_multi(&scene),
+    });
     eprintln!("Rendering took {:.2} seconds", duration.as_secs_f64());
 
-    rtr::generate_ppm_image(image, &filepath)
+    rtr::generate_ppm_image(image, &output)
 }
