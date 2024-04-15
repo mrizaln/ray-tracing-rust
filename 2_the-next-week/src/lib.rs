@@ -5,6 +5,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::usize;
 
+pub mod aabb;
+pub mod bvh;
 pub mod color;
 pub mod hittable;
 pub mod interval;
@@ -23,6 +25,8 @@ use material::*;
 use ray_tracer::Image;
 use vec::Vector;
 
+use self::bvh::BvhNode;
+use self::hittable::Hittable;
 use self::ray_tracer::TracerParams;
 use self::vec::VecElement;
 
@@ -225,11 +229,11 @@ pub fn ray_tracing_in_one_week_book_scene() -> HittableList {
     scene
 }
 
-pub fn ray_tracing_in_one_week_book_scene_but_moving() -> HittableList {
-    let mut scene = HittableList::new();
+fn ray_tracing_in_one_week_book_scene_but_moving() -> Vec<Box<dyn Hittable>> {
+    let mut objects = Vec::<Box<dyn Hittable>>::new();
 
     // ground (static)
-    scene.add(Box::new(Sphere::new(
+    objects.push(Box::new(Sphere::new(
         Vector::new([0.0, -1000.0, 0.0]),
         1000.0,
         Some(Box::new(Lambertian::new(Color::new([0.5, 0.5, 0.5])))), // diffuse
@@ -269,30 +273,46 @@ pub fn ray_tracing_in_one_week_book_scene_but_moving() -> HittableList {
             } else {
                 Box::new(Sphere::new(center, 0.2, Some(material)))
             };
-            scene.add(sphere);
+            objects.push(sphere);
         }
     }
 
     // large spheres (static)
-    scene.add(Box::new(Sphere::new(
+    objects.push(Box::new(Sphere::new(
         Vector::new([0.0, 1.0, 0.0]),
         1.0,
         Some(Box::new(Dielectric::new(1.5))), // glassy
     )));
 
-    scene.add(Box::new(Sphere::new(
+    objects.push(Box::new(Sphere::new(
         Vector::new([-4.0, 1.0, 0.0]),
         1.0,
         Some(Box::new(Lambertian::new(Color::new([0.4, 0.2, 0.1])))), // diffuse
     )));
 
-    scene.add(Box::new(Sphere::new(
+    objects.push(Box::new(Sphere::new(
         Vector::new([4.0, 1.0, 0.0]),
         1.0,
         Some(Box::new(Metal::new(Color::new([0.7, 0.6, 0.5]), 0.0))), // shiny
     )));
 
-    scene
+    objects
+}
+
+pub fn ray_tracing_in_one_week_book_scene_but_moving_simple() -> HittableList {
+    let mut list = HittableList::new();
+    ray_tracing_in_one_week_book_scene_but_moving()
+        .into_iter()
+        .for_each(|o| list.add(o));
+    list
+}
+
+pub fn ray_tracing_in_one_week_book_scene_but_moving_bvh() -> HittableList {
+    let mut list = HittableList::new();
+    list.add(Box::new(BvhNode::new(
+        ray_tracing_in_one_week_book_scene_but_moving(),
+    )));
+    list
 }
 
 fn parse_vector<T, const N: usize>(string: &str) -> Option<Vector<T, N>>

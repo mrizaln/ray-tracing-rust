@@ -1,3 +1,6 @@
+use std::array;
+
+use crate::aabb::AABB;
 use crate::interval::Interval;
 use crate::material::Material;
 use crate::ray::Ray;
@@ -5,6 +8,7 @@ use crate::vec::Vector;
 
 type Vec3 = Vector<f64, 3>;
 type Ray3 = Ray<f64, 3>;
+type AABB3 = AABB<f64, 3>;
 
 #[derive(Clone)]
 pub struct HitRecord {
@@ -38,12 +42,14 @@ pub trait Hittable {
     fn get_material<'a>(&'a self) -> Option<&'a dyn Material> {
         None
     }
+    fn bounding_box(&self) -> &AABB3;
 }
 
 pub struct Sphere {
     pub center: Vec3,
     pub radius: f64,
     pub material: Option<Box<dyn Material>>,
+    bbox: AABB3,
     is_moving: bool,
     center_vec: Vec3,
 }
@@ -54,6 +60,11 @@ impl Sphere {
             center,
             radius,
             material,
+            bbox: AABB3::new(array::from_fn(|i| {
+                let min = center[i] - radius;
+                let max = center[i] + radius;
+                Interval::new(min, max)
+            })),
             ..Self::default()
         }
     }
@@ -64,10 +75,23 @@ impl Sphere {
         radius: f64,
         material: Option<Box<dyn Material>>,
     ) -> Self {
+        let bbox1 = AABB3::new(array::from_fn(|i| {
+            let min = center1[i] - radius;
+            let max = center1[i] + radius;
+            Interval::new(min, max)
+        }));
+
+        let bbox2 = AABB3::new(array::from_fn(|i| {
+            let min = center2[i] - radius;
+            let max = center2[i] + radius;
+            Interval::new(min, max)
+        }));
+
         Self {
             center: center1,
             radius,
             material,
+            bbox: bbox1.combine_new(&bbox2),
             is_moving: true,
             center_vec: center2 - center1,
         }
@@ -119,6 +143,10 @@ impl Hittable for Sphere {
             material: self.get_material(),
         })
     }
+
+    fn bounding_box(&self) -> &AABB3 {
+        &self.bbox
+    }
 }
 
 impl Default for Sphere {
@@ -127,6 +155,7 @@ impl Default for Sphere {
             center: Vec3::default(),
             radius: 1.0,
             material: None,
+            bbox: AABB3::empty(),
             is_moving: false,
             center_vec: [0.0, 0.0, 0.0].into(),
         }
@@ -135,6 +164,7 @@ impl Default for Sphere {
 
 pub struct HittableList {
     objects: Vec<Box<dyn Hittable>>,
+    bbox: AABB3,
 }
 
 unsafe impl Sync for HittableList {}
@@ -153,16 +183,22 @@ impl Hittable for HittableList {
 
         current_hit
     }
+
+    fn bounding_box(&self) -> &AABB3 {
+        &self.bbox
+    }
 }
 
 impl HittableList {
     pub fn new() -> Self {
         Self {
             objects: Vec::new(),
+            bbox: AABB3::empty(),
         }
     }
 
     pub fn add(&mut self, object: Box<dyn Hittable>) {
+        self.bbox.combine(object.bounding_box());
         self.objects.push(object);
     }
 }

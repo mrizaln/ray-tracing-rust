@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
+use std::cmp::PartialOrd;
 use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
 use num::traits::Num;
+use rand::distributions::uniform::SampleUniform;
 
 use crate::util;
 
@@ -272,7 +274,7 @@ impl<T: VecElement> Vector<T, 4> {
 
 pub fn random_vector<T, const N: usize>(from: T, to: T) -> Vector<T, N>
 where
-    T: VecElement + From<f64> + Into<f64>,
+    T: VecElement + SampleUniform,
 {
     let mut data = [T::default(); N];
     data.iter_mut()
@@ -282,7 +284,7 @@ where
 
 pub fn random_in_unit_sphere<T, const N: usize>() -> Vector<T, N>
 where
-    T: VecElement + From<f64> + Into<f64>,
+    T: VecElement + SampleUniform + From<f64> + Into<f64>,
 {
     loop {
         let point = random_vector::<T, N>(T::from(-1.0), T::from(1.0));
@@ -294,14 +296,14 @@ where
 
 pub fn random_unit_vector<T, const N: usize>() -> Vector<T, N>
 where
-    T: VecElement + From<f64> + Into<f64>,
+    T: VecElement + SampleUniform + From<f64> + Into<f64>,
 {
     random_in_unit_sphere().unit_vector()
 }
 
 pub fn random_on_hemisphere<T, const N: usize>(normal: Vector<T, N>) -> Vector<T, N>
 where
-    T: VecElement + From<f64> + Into<f64>,
+    T: VecElement + SampleUniform + From<f64> + Into<f64>,
 {
     let point = random_unit_vector::<T, N>();
     if point.dot(normal).into() > 0.0 {
@@ -313,7 +315,7 @@ where
 
 pub fn random_in_unit_disk<T>() -> Vector<T, 2>
 where
-    T: VecElement + From<f64> + Into<f64> + std::cmp::PartialOrd,
+    T: VecElement + SampleUniform + From<f64> + Into<f64> + PartialOrd,
 {
     loop {
         let point = random_vector::<T, 2>(T::from(-1.0), T::from(1.0));
