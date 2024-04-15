@@ -98,6 +98,10 @@ impl<T: Num + PartialOrd + Clone> Interval<T> {
             _ => value,
         }
     }
+
+    pub fn size(&self) -> T {
+        self.max.clone() - self.min.clone()
+    }
 }
 
 impl<T: Num + PartialOrd + Clone> From<(T, T)> for Interval<T> {

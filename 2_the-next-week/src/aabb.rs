@@ -93,4 +93,17 @@ where
         }
         true
     }
+
+    pub fn longest_axis(&self) -> usize {
+        let mut longest = 0;
+        let mut max_length = T::zero();
+        for (idx, int) in self.intervals.iter().enumerate() {
+            let length = int.size();
+            if length > max_length {
+                max_length = length;
+                longest = idx;
+            }
+        }
+        longest
+    }
 }
