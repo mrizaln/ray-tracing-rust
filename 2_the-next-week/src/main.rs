@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use ray_tracing_the_next_week as rtr;
 use rtr::ray_tracer::RayTracer;
-use rtr::ParsedArgs;
+use rtr::{scenes, ParsedArgs};
 
 macro_rules! timeit {
     ($e:expr) => {{
@@ -36,9 +36,9 @@ fn main() {
 
     let ray_tracer = RayTracer::new(tracer_params);
 
-    // let scene = rtr::ray_tracing_in_one_week_book_scene();
-    // let scene = rtr::ray_tracing_in_one_week_book_scene_modified_simple();
-    let scene = rtr::ray_tracing_in_one_week_book_scene_modified_bvh();
+    // let scene = scenes::ray_tracing_in_one_week_book_scene();
+    // let scene = scenes::ray_tracing_in_one_week_book_scene_modified_simple();
+    let scene = scenes::ray_tracing_in_one_week_book_scene_modified_bvh();
 
     let (image, duration) = timeit!(match use_single_thread {
         true => ray_tracer.render(&scene),
