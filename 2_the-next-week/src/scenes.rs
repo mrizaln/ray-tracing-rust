@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use lazy_static::lazy_static;
+
 use crate::bvh::BvhNode;
 use crate::color::Color;
 use crate::hittable::{Hittable, HittableList, Sphere};
@@ -5,6 +9,23 @@ use crate::material::{Dielectric, Lambertian, Material, Metal};
 use crate::texture::CheckerTexture;
 use crate::vec::Vector;
 use crate::{util, vec};
+
+type Function = fn() -> HittableList;
+lazy_static! {
+    pub static ref SCENES: HashMap<&'static str, Function> = vec![
+        (
+            "random-spheres",
+            ray_tracing_in_one_week_book_scene as Function,
+        ),
+        (
+            "random-spheres-bouncing",
+            ray_tracing_in_one_week_book_scene_modified_bvh as Function,
+        ),
+        ("checkered-spheres", checkered_spheres as Function,)
+    ]
+    .into_iter()
+    .collect();
+}
 
 pub fn ray_tracing_in_one_week_book_scene() -> HittableList {
     let mut scene = HittableList::new();
@@ -158,4 +179,36 @@ pub fn ray_tracing_in_one_week_book_scene_modified_bvh() -> HittableList {
     let objects = ray_tracing_in_one_week_book_scene_modified();
     list.add(Box::new(BvhNode::new(objects)));
     list
+}
+
+pub fn checkered_spheres() -> HittableList {
+    let mut objects = Vec::<Box<dyn Hittable>>::new();
+
+    // I don't want to go into the trouble implementing clone for dyn Texture
+    let checker1 = Box::new(CheckerTexture::from_color(
+        0.32,
+        Color::new([0.2, 0.3, 0.1]),
+        Color::new([0.9, 0.9, 0.9]),
+    ));
+    let checker2 = Box::new(CheckerTexture::from_color(
+        0.32,
+        Color::new([0.2, 0.3, 0.1]),
+        Color::new([0.9, 0.9, 0.9]),
+    ));
+
+    objects.push(Box::new(Sphere::new(
+        [0.0, -10.0, 0.0].into(),
+        10.0,
+        Some(Box::new(Lambertian::with_texture(checker1))),
+    )));
+    objects.push(Box::new(Sphere::new(
+        [0.0, 10.0, 0.0].into(),
+        10.0,
+        Some(Box::new(Lambertian::with_texture(checker2))),
+    )));
+
+    let mut scene = HittableList::new();
+    scene.add(Box::new(BvhNode::new(objects)));
+
+    scene
 }

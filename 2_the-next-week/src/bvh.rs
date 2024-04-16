@@ -1,6 +1,7 @@
 use crate::aabb::AABB;
 use crate::hittable::{HitResult, Hittable};
 use crate::interval::Interval;
+use crate::material::Material;
 use crate::ray::Ray;
 
 type AABB3 = AABB<f64, 3>;
@@ -105,7 +106,7 @@ impl Hittable for BvhNode {
         &self.bbox
     }
 
-    fn get_material<'a>(&'a self) -> Option<&'a dyn crate::Material> {
+    fn get_material<'a>(&'a self) -> Option<&'a dyn Material> {
         None
     }
 }

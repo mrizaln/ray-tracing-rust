@@ -539,6 +539,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "config",
+ "lazy_static",
  "num",
  "rand",
 ]

@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
+use core::fmt::{self, Debug};
 use std::cmp::PartialOrd;
+use std::fmt::Display;
 use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
 
 use num::traits::Num;
@@ -67,13 +69,13 @@ macro_rules! gen_getter {
     };
 }
 
-pub trait VecElement: Copy + Default + Num + Neg<Output = Self> {}
+pub trait VecElement: Copy + Default + Num + Neg<Output = Self> + Display {}
 
 // blanket implementation for VecElement
-impl<T> VecElement for T where T: Copy + Default + Num + Neg<Output = Self> {}
+impl<T> VecElement for T where T: Copy + Default + Num + Neg<Output = Self> + Display {}
 
 /// Mathematical object vector struct
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub struct Vector<T: VecElement, const N: usize> {
     pub data: [T; N],
 }
@@ -142,6 +144,24 @@ impl<T: VecElement, const N: usize> Index<usize> for Vector<T, N> {
 impl<T: VecElement, const N: usize> IndexMut<usize> for Vector<T, N> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         self.data.index_mut(index)
+    }
+}
+
+impl<T: VecElement, const N: usize> Display for Vector<T, N> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let joined = self
+            .data
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+        write!(f, "Vector ({})", joined)
+    }
+}
+
+impl<T: VecElement, const N: usize> Debug for Vector<T, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
