@@ -241,27 +241,28 @@ impl_unary_op!(Neg, neg, -);
 impl<T: VecElement> Vector<T, 1> {
     gen_getter!((x, x_mut, 0), (x1, x1_mut, 0));
 }
+
 impl<T: VecElement> Vector<T, 2> {
-    gen_getter!((x, x_mut, 0), (x1, x1_mut, 0));
-    gen_getter!((y, y_mut, 1), (x2, x2_mut, 1));
+    gen_getter!((x, x_mut, 0), (x1, x1_mut, 0), (u, u_mut, 0));
+    gen_getter!((y, y_mut, 1), (x2, x2_mut, 1), (v, v_mut, 0));
 }
 
 impl<T: VecElement> Vector<T, 3> {
-    gen_getter!((x, x_mut, 0), (x1, x1_mut, 0));
-    gen_getter!((y, y_mut, 1), (x2, x2_mut, 1));
-    gen_getter!((z, z_mut, 2), (x3, x3_mut, 2));
+    gen_getter!((x, x_mut, 0), (x1, x1_mut, 0), (u, u_mut, 0));
+    gen_getter!((y, y_mut, 1), (x2, x2_mut, 1), (v, v_mut, 0));
+    gen_getter!((z, z_mut, 2), (x3, x3_mut, 2), (w, w_mut, 0)); // w: 3rd dim for tex
 }
 
 impl<T: VecElement> Vector<T, 4> {
     gen_getter!((x, x_mut, 0), (x1, x1_mut, 0));
     gen_getter!((y, y_mut, 1), (x2, x2_mut, 1));
     gen_getter!((z, z_mut, 2), (x3, x3_mut, 2));
-    gen_getter!((w, w_mut, 3), (x4, x4_mut, 3));
+    gen_getter!((w, w_mut, 3), (x4, x4_mut, 3)); // w: 4th dim no tex
 }
 
 // // Rust can't do this, because of the orphan rule:
 // //       read: https://users.rust-lang.org/t/operator-overloading-and-generics/77485/6
-// // What a shame, no symmetric operator for Vector with scalar sadly
+// // What a shame, no symmetric binary operator for Vector with scalar sadly
 // impl<T: VecElement, const N: usize> Add<Vector<T, N>> for T {
 //     type Output = Vector<T, N>;
 

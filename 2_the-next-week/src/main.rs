@@ -37,8 +37,8 @@ fn main() {
     let ray_tracer = RayTracer::new(tracer_params);
 
     // let scene = rtr::ray_tracing_in_one_week_book_scene();
-    // let scene = rtr::ray_tracing_in_one_week_book_scene_but_moving_simple();
-    let scene = rtr::ray_tracing_in_one_week_book_scene_but_moving_bvh();
+    // let scene = rtr::ray_tracing_in_one_week_book_scene_modified_simple();
+    let scene = rtr::ray_tracing_in_one_week_book_scene_modified_bvh();
 
     let (image, duration) = timeit!(match use_single_thread {
         true => ray_tracer.render(&scene),

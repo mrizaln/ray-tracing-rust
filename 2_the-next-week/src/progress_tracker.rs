@@ -1,9 +1,10 @@
+use std::array;
 use std::ops::{Add, Div};
 use std::time::{Duration, Instant};
 
 struct MovingAverage<T, const N: usize>
 where
-    T: Add<T, Output = T> + Div<usize, Output = T> + Default + Copy,
+    T: Add<T, Output = T> + Div<usize, Output = T> + Clone + Default,
 {
     entries: Box<[T; N]>,
     index: usize,
@@ -13,11 +14,11 @@ where
 
 impl<T, const N: usize> MovingAverage<T, N>
 where
-    T: Add<T, Output = T> + Div<usize, Output = T> + Default + Copy,
+    T: Add<T, Output = T> + Div<usize, Output = T> + Clone + Default,
 {
     pub fn new() -> Self {
         Self {
-            entries: Box::new([T::default(); N]),
+            entries: Box::new(array::from_fn(|_| T::default())),
             index: 0,
             average: T::default(),
             full: false,
@@ -33,23 +34,26 @@ where
         self.index = (self.index + 1) % N;
 
         self.average = if self.full {
-            self.entries.iter().fold(T::default(), |acc, &x| acc + x) / N
+            self.entries
+                .iter()
+                .fold(T::default(), |acc, x| acc + x.clone())
+                / N
         } else {
             self.entries
                 .iter()
                 .take(self.index + 1)
-                .fold(T::default(), |acc, &x| acc + x)
+                .fold(T::default(), |acc, x| acc + x.clone())
                 / (self.index + 1)
         };
-        self.average
+        self.average.clone()
     }
 
     pub fn average(&self) -> T {
-        self.average
+        self.average.clone()
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 struct UpdateRecord {
     pub time: Duration,
     pub diff: usize,

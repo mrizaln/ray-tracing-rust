@@ -331,7 +331,8 @@ impl ProgressTrackerWrapper {
         let max_count = steps * width as usize;
         Self {
             tracker: ProgressTracker::new(0, max_count as isize),
-            min_update_interval: MINIMUM_UPDATE_INTERVAL.min(width as usize),
+            // min_update_interval: MINIMUM_UPDATE_INTERVAL.min(width as usize),
+            min_update_interval: MINIMUM_UPDATE_INTERVAL,
             width: width as usize,
         }
     }
@@ -343,7 +344,7 @@ impl ProgressTrackerWrapper {
         if should_update || reached_max {
             self.tracker.update(new_count as isize);
             eprint!(
-                "\rProgress: {:>6.2}% | Elapsed: {:>6.2}s | ETA: {:>6.2}s",
+                "Progress: {:>6.2}% | Elapsed: {:>6.2}s | ETA: {:>6.2}s\r",
                 self.tracker.progress(),
                 self.tracker.get_elapsed().as_secs_f64(),
                 self.tracker.get_eta().as_secs_f64()

@@ -14,6 +14,7 @@ pub mod material;
 pub mod progress_tracker;
 pub mod ray;
 pub mod ray_tracer;
+pub mod texture;
 pub mod util;
 pub mod vec;
 
@@ -28,6 +29,7 @@ use vec::Vector;
 use self::bvh::BvhNode;
 use self::hittable::Hittable;
 use self::ray_tracer::TracerParams;
+use self::texture::CheckerTexture;
 use self::vec::VecElement;
 
 macro_rules! parse_config {
@@ -229,14 +231,20 @@ pub fn ray_tracing_in_one_week_book_scene() -> HittableList {
     scene
 }
 
-fn ray_tracing_in_one_week_book_scene_but_moving() -> Vec<Box<dyn Hittable>> {
+fn ray_tracing_in_one_week_book_scene_modified() -> Vec<Box<dyn Hittable>> {
     let mut objects = Vec::<Box<dyn Hittable>>::new();
+
+    let checker = Box::new(CheckerTexture::from_color(
+        0.32,
+        Color::new([0.2, 0.3, 0.1]),
+        Color::new([0.9, 0.9, 0.9]),
+    ));
 
     // ground (static)
     objects.push(Box::new(Sphere::new(
         Vector::new([0.0, -1000.0, 0.0]),
         1000.0,
-        Some(Box::new(Lambertian::new(Color::new([0.5, 0.5, 0.5])))), // diffuse
+        Some(Box::new(Lambertian::with_texture(checker))), // diffuse
     )));
 
     // small spheres (moving)
@@ -299,19 +307,18 @@ fn ray_tracing_in_one_week_book_scene_but_moving() -> Vec<Box<dyn Hittable>> {
     objects
 }
 
-pub fn ray_tracing_in_one_week_book_scene_but_moving_simple() -> HittableList {
+pub fn ray_tracing_in_one_week_book_scene_modified_simple() -> HittableList {
     let mut list = HittableList::new();
-    ray_tracing_in_one_week_book_scene_but_moving()
+    ray_tracing_in_one_week_book_scene_modified()
         .into_iter()
         .for_each(|o| list.add(o));
     list
 }
 
-pub fn ray_tracing_in_one_week_book_scene_but_moving_bvh() -> HittableList {
+pub fn ray_tracing_in_one_week_book_scene_modified_bvh() -> HittableList {
     let mut list = HittableList::new();
-    list.add(Box::new(BvhNode::new(
-        ray_tracing_in_one_week_book_scene_but_moving(),
-    )));
+    let objects = ray_tracing_in_one_week_book_scene_modified();
+    list.add(Box::new(BvhNode::new(objects)));
     list
 }
 

@@ -1,6 +1,7 @@
 use crate::color::Color;
 use crate::hittable::HitRecord;
 use crate::ray::Ray;
+use crate::texture::{SolidColor, Texture};
 use crate::util;
 use crate::vec::{self, Vector};
 
@@ -18,7 +19,7 @@ pub trait Material {
 
 // diffuse material
 pub struct Lambertian {
-    pub albedo: Color,
+    pub texture: Box<dyn Texture>,
 }
 
 impl Material for Lambertian {
@@ -34,14 +35,20 @@ impl Material for Lambertian {
                 direction: scatter_direction,
                 time: ray.time,
             },
-            attenuation: self.albedo.clone(),
+            attenuation: self.texture.value(hit_record.tex, hit_record.point),
         })
     }
 }
 
 impl Lambertian {
     pub fn new(albedo: Color) -> Self {
-        Self { albedo }
+        Self {
+            texture: Box::new(SolidColor::new(albedo)),
+        }
+    }
+
+    pub fn with_texture(texture: Box<dyn Texture>) -> Self {
+        Self { texture }
     }
 }
 

@@ -7,6 +7,7 @@ use crate::ray::Ray;
 use crate::vec::Vector;
 
 type Vec3 = Vector<f64, 3>;
+type Vec2 = Vector<f64, 2>;
 type Ray3 = Ray<f64, 3>;
 type AABB3 = AABB<f64, 3>;
 
@@ -14,18 +15,20 @@ type AABB3 = AABB<f64, 3>;
 pub struct HitRecord {
     pub point: Vec3,
     pub normal: Vec3,
+    pub tex: Vec2,
     pub t_value: f64,
     pub front_face: bool,
 }
 
 impl HitRecord {
-    pub fn new(ray: Ray3, out_normal: Vec3, point: Vec3, t_value: f64) -> HitRecord {
+    pub fn new(ray: Ray3, out_normal: Vec3, point: Vec3, tex_hit: Vec2, t_value: f64) -> HitRecord {
         let front_face = ray.direction.dot(out_normal) < 0.0;
         let normal = if front_face { out_normal } else { -out_normal };
 
         Self {
             point,
             normal,
+            tex: tex_hit,
             t_value,
             front_face,
         }
@@ -139,7 +142,7 @@ impl Hittable for Sphere {
         let out_normal = (point - self.center) / self.radius;
 
         Some(HitResult {
-            record: HitRecord::new(ray, out_normal, point, root),
+            record: HitRecord::new(ray, out_normal, point, Vec2::default(), root),
             material: self.get_material(),
         })
     }
