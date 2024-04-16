@@ -1,0 +1,8 @@
+height          = 480
+sampling        = 20
+depth           = 5
+vfov            = 20.0
+defocus_angle   = 0.6
+focus_distance  = 10.0
+look_from       = "13.0/2.0/3.0"
+look_at         = "0.0/0.0/0.0"
